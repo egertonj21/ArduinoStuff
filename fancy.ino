@@ -7,8 +7,9 @@
 const char* mqtt_server = "192.168.0.87";
 const int mqtt_port = 1883;
 
-// MQTT topic
+// MQTT topics
 const char* distance_topic = "ultrasonic/distance_sensor4";
+const char* alive_topic = "ultrasonic/alive_sensor4";
 
 // Ultrasonic sensor parameters
 #define TRIGGER_PIN 9
@@ -18,9 +19,6 @@ const char* distance_topic = "ultrasonic/distance_sensor4";
 // IR sensor digital output pin
 #define IR_PIN 2
 
-// Threshold distance for sending data to MQTT broker
-const int threshold_distance = 50;  // Change this value according to your requirement
-
 // WiFi client and MQTT client
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -28,9 +26,9 @@ PubSubClient client(espClient);
 // Ultrasonic sensor instance
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 
-// Last status update time
-unsigned long lastStatusUpdate = 0;
-const unsigned long statusInterval = 900000;  // 15 minutes in milliseconds
+// Last alive message time
+unsigned long lastAliveMessage = 0;
+const unsigned long aliveInterval = 900000;  // 15 minutes in milliseconds
 
 void setup() {
   Serial.begin(115200);
@@ -74,28 +72,28 @@ void loop() {
     Serial.print(distance);
     Serial.println(" cm");
 
-    // Check if distance is less than threshold
-    if (distance < threshold_distance) {
-      // Convert distance to string
-      char payload[10];
-      sprintf(payload, "%d", distance);
+    // Convert distance to string
+    char payload[10];
+    sprintf(payload, "%d", distance);
 
-      // Publish distance to MQTT broker
-      if (client.publish(distance_topic, payload)) {
-        Serial.println("Message sent to MQTT broker!");
-      } else {
-        Serial.println("Failed to send message to MQTT broker!");
-      }
+    // Publish distance to MQTT broker
+    if (client.publish(distance_topic, payload)) {
+      Serial.println("Distance message sent to MQTT broker!");
+    } else {
+      Serial.println("Failed to send distance message to MQTT broker!");
     }
 
     delay(500);  // Adjust the delay time as needed
   }
 
-  // Publish status update every 15 minutes
-  if (currentMillis - lastStatusUpdate > statusInterval) {
-    lastStatusUpdate = currentMillis;
-    String statusPayload = "{\"status\": \"Module is functioning\"}";
-    client.publish("sensor/status", statusPayload.c_str());
+  // Send alive message every 15 minutes
+  if (currentMillis - lastAliveMessage > aliveInterval) {
+    lastAliveMessage = currentMillis;
+    if (client.publish(alive_topic, "alive")) {
+      Serial.println("Alive message sent to MQTT broker!");
+    } else {
+      Serial.println("Failed to send alive message to MQTT broker!");
+    }
   }
 }
 
